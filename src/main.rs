@@ -65,18 +65,19 @@ impl MainState {
         let board_size = board.len();
         let mut rand_index = rand::thread_rng().gen_range(0..board_size);
         let mut pair = board.get_index(rand_index).unwrap();
-        while pair.1.is_wall() {
+        while pair.1.is_hole() {
             rand_index = rand::thread_rng().gen_range(0..board_size);
             pair = board.get_index(rand_index).unwrap();
         }
         return pair.0.clone();
     }
 
-    fn check_if_hit_wall(&mut self) {
+    fn check_if_falls(&mut self) {
         let head_coord = self.snake.get_head();
         let head_tile = self.board.get(head_coord).unwrap();
-        if head_tile.is_wall() {
+        if head_tile.is_hole() {
             self.end_game = true;
+            self.snake.falling = true;
         }
     }
 
@@ -86,7 +87,7 @@ impl MainState {
             self.apple = MainState::get_random_tile(&self.board);
             self.score = self.score + 1;
             if self.score % ADD_WALLS_INTERVAL == 0 {
-                self.add_walls();
+                self.add_holes();
             }
         }
         let end_coord = self.snake.get_end();
@@ -98,18 +99,17 @@ impl MainState {
         }
     }
 
-    fn add_walls(&mut self) {
+    fn add_holes(&mut self) {
         let mut wall_coord = MainState::get_random_tile(&self.board);
         let mut wall_tile = self.board.get_mut(&wall_coord).unwrap();
-        wall_tile.set_as_wall();
-        let mut counter = 1;
+        let mut counter = 0;
         while counter < ADD_WALLS_NUM - 1 {
             let mut rand_index = rand::thread_rng().gen_range(0..6);
             let rand_dir = Direction::from_value(rand_index).unwrap();
             let rand_neighbour_coord = wall_coord.move_in_dir(rand_dir);
             if let Some(neighbour) = self.board.get_mut(&rand_neighbour_coord) {
-                if !neighbour.is_wall() && rand_neighbour_coord != self.apple {
-                    neighbour.set_as_wall();
+                if !neighbour.is_hole() && rand_neighbour_coord != self.apple {
+                    neighbour.set_as_hole();
                     wall_coord = rand_neighbour_coord;
                     counter = counter + 1;
                 }
@@ -119,8 +119,8 @@ impl MainState {
         let rand_dir = Direction::from_value(rand_index).unwrap();
         let rand_neighbour_coord = wall_coord.move_in_dir(rand_dir);
         if let Some(neighbour) = self.board.get_mut(&rand_neighbour_coord) {
-            if !neighbour.is_wall() {
-                neighbour.set_as_wall()
+            if !neighbour.is_hole() {
+                neighbour.set_as_hole()
             }
         }
     }
@@ -128,16 +128,22 @@ impl MainState {
 
 impl EventHandler<ggez::GameError> for MainState {
     fn update(&mut self, ctx: &mut Context) -> Result<(), GameError> {
-        if self.end_game {
-            return Ok(());
-        }
+
         while timer::check_update_time(ctx, 2) {
+
+            if self.end_game {
+                if self.snake.falling{
+                    self.snake.move_();
+                }
+                return Ok(());
+            }
+            
             self.snake.move_();
             if self.snake.has_eaten_itself() {
                 self.end_game = true;
                 return Ok(());
             }
-            self.check_if_hit_wall();
+            self.check_if_falls();
             self.check_if_eaten_apple();
         }
         Ok(())

@@ -23,7 +23,8 @@ impl BodyPart{
 
 
 pub struct Snake{
-    tail : VecDeque<BodyPart>
+    tail : VecDeque<BodyPart>,
+    pub falling: bool
 }
 
 impl Snake{
@@ -33,14 +34,24 @@ impl Snake{
         tail.push_back(head);
         tail.push_back(BodyPart::new(HexCoordinates::new(1 , -1, 0), Direction::East, Direction::West));
         tail.push_back(BodyPart::new(HexCoordinates::new(2 , -2, 0), Direction::East,Direction::West));
-        Snake{tail}
+        Snake{tail, falling: false}
     }
 
     pub fn move_(&mut self){
         self.tail.pop_back();
-        let old_head = self.tail.front().unwrap();
-        let new_head = BodyPart::new(old_head.coordinates.move_in_dir(old_head.dir_to),old_head.dir_to.opposite_direction(),old_head.dir_to);
-        self.tail.push_front(new_head);
+            match self.tail.front(){
+                None => return,
+                Some(old_head) => {
+                    let new_head = BodyPart::new(old_head.coordinates.move_in_dir(old_head.dir_to),old_head.dir_to.opposite_direction(),old_head.dir_to);
+                    self.tail.push_front(new_head);
+                }
+            }
+        if self.falling && !self.tail.is_empty(){
+            self.tail.pop_front();
+        }
+        else{
+            self.falling = false;
+        }
     }
 
     pub fn rotate_head(&mut self, key : KeyCode){
@@ -82,38 +93,46 @@ impl Snake{
     }
 
     pub fn draw(&self, ctx: &mut Context) -> GameResult<()>{
-
         //draw head
-        let head = self.tail.front().unwrap();
-        let (head_center_x, head_center_y) = head.coordinates.get_eucl_center(HEX_SIDE);
-        let(point_from_1, point_from_2) = head.dir_from.get_vertices(HEX_SIDE);
-        let (point_to_1, point_to_2) = head.dir_to.get_vertices(HEX_SIDE);
+        if !self.tail.is_empty() {
+            let mut start_range = 0;
+            if !self.falling {
+                start_range = 1;
+                let head = self.tail.front().unwrap();
+                let (head_center_x, head_center_y) = head.coordinates.get_eucl_center(HEX_SIDE);
+                let (point_from_1, point_from_2) = head.dir_from.get_vertices(HEX_SIDE);
+                let (point_to_1, point_to_2) = head.dir_to.get_vertices(HEX_SIDE);
 
-        let head_mesh = graphics::Mesh::new_polygon(ctx,DrawMode::fill(),&[
-            point_from_1,
-            Point2::from([(point_to_1.x + point_to_2.x) / 2_f32,(point_to_1.y + point_to_2.y) / 2_f32]),
-            point_from_2
-        ],Color::from_rgb(13, 133, 31))?;
+                let head_mesh = graphics::Mesh::new_polygon(ctx, DrawMode::fill(), &[
+                    point_from_1,
+                    Point2::from([(point_to_1.x + point_to_2.x) / 2_f32, (point_to_1.y + point_to_2.y) / 2_f32]),
+                    point_from_2
+                ], Color::from_rgb(13, 133, 31))?;
 
 
-        head_mesh.draw(ctx, DrawParam::default().dest(Point2::from([head_center_x, head_center_y])))?;
+                head_mesh.draw(ctx, DrawParam::default().dest(Point2::from([head_center_x, head_center_y])))?;
+            }
 
-        //draw tail
-        for tail_part in self.tail.range(1..){
-            let (center_x, center_y) = tail_part.coordinates.get_eucl_center(HEX_SIDE);
-            let (point_from_1, point_from_2) = tail_part.dir_from.get_vertices(HEX_SIDE);
-            let (point_to_1, point_to_2) = tail_part.dir_to.get_vertices(HEX_SIDE);
-            let tail_part_mesh = graphics::Mesh::new_polygon(ctx, DrawMode::fill(), &[
-                point_from_1,
-                point_from_2,
-                point_to_1,
-                point_to_2
-            ], Color::from_rgb(13, 133, 31))?;
-            tail_part_mesh.draw(ctx, DrawParam::default().dest(Point2::from([center_x, center_y])))?;
+
+            //draw tail
+            for tail_part in self.tail.range(start_range..) {
+                let (center_x, center_y) = tail_part.coordinates.get_eucl_center(HEX_SIDE);
+                let (point_from_1, point_from_2) = tail_part.dir_from.get_vertices(HEX_SIDE);
+                let (point_to_1, point_to_2) = tail_part.dir_to.get_vertices(HEX_SIDE);
+                let tail_part_mesh = graphics::Mesh::new_polygon(ctx, DrawMode::fill(), &[
+                    point_from_1,
+                    point_from_2,
+                    point_to_1,
+                    point_to_2
+                ], Color::from_rgb(13, 133, 31))?;
+                tail_part_mesh.draw(ctx, DrawParam::default().dest(Point2::from([center_x, center_y])))?;
+            }
         }
 
         Ok(())
     }
+
+
 }
 
 #[cfg(test)]
