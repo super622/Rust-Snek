@@ -20,6 +20,7 @@ const HEX_SIDE: f32 = 30.0;
 const GRID_RADIUS: i32 = 9;
 const ADD_WALLS_NUM: i32 = 3;
 const ADD_WALLS_INTERVAL: i32 = 3;
+const UPDATE_SPEED : u32 = 2;
 
 pub struct MainState {
     board: IndexMap<HexCoordinates, Tile>,
@@ -49,25 +50,25 @@ impl MainState {
             }
         }
         let snake = Snake::new();
-        let game = MainState {
-            apple: MainState::get_random_tile(&map),
+        let mut game = MainState {
+            apple: HexCoordinates::new(0, 0, 0),
             board: map,
             snake,
             score: 0,
             end_game: false,
             prev_apple: None,
         };
-
+        game.apple = game.get_random_tile();
         Ok(game)
     }
 
-    fn get_random_tile(board: &IndexMap<HexCoordinates, Tile>) -> HexCoordinates {
-        let board_size = board.len();
+    fn get_random_tile(&self) -> HexCoordinates {
+        let board_size = self.board.len();
         let mut rand_index = rand::thread_rng().gen_range(0..board_size);
-        let mut pair = board.get_index(rand_index).unwrap();
-        while pair.1.is_hole() {
+        let mut pair = self.board.get_index(rand_index).unwrap();
+        while pair.1.is_hole()  {
             rand_index = rand::thread_rng().gen_range(0..board_size);
-            pair = board.get_index(rand_index).unwrap();
+            pair = self.board.get_index(rand_index).unwrap();
         }
         return pair.0.clone();
     }
@@ -84,7 +85,7 @@ impl MainState {
     fn check_if_eaten_apple(&mut self) {
         if self.snake.get_head() == &self.apple {
             self.prev_apple = Some(self.apple.clone());
-            self.apple = MainState::get_random_tile(&self.board);
+            self.apple = self.get_random_tile();
             self.score = self.score + 1;
             if self.score % ADD_WALLS_INTERVAL == 0 {
                 self.add_holes();
@@ -100,27 +101,18 @@ impl MainState {
     }
 
     fn add_holes(&mut self) {
-        let mut wall_coord = MainState::get_random_tile(&self.board);
-        let mut wall_tile = self.board.get_mut(&wall_coord).unwrap();
+        let mut wall_coord = self.get_random_tile();
         let mut counter = 0;
-        while counter < ADD_WALLS_NUM - 1 {
+        while counter < ADD_WALLS_NUM {
             let mut rand_index = rand::thread_rng().gen_range(0..6);
             let rand_dir = Direction::from_value(rand_index).unwrap();
             let rand_neighbour_coord = wall_coord.move_in_dir(rand_dir);
             if let Some(neighbour) = self.board.get_mut(&rand_neighbour_coord) {
-                if !neighbour.is_hole() && rand_neighbour_coord != self.apple {
+                if !neighbour.is_hole() && rand_neighbour_coord != self.apple && !self.snake.check_collision(&rand_neighbour_coord) {
                     neighbour.set_as_hole();
                     wall_coord = rand_neighbour_coord;
                     counter = counter + 1;
                 }
-            }
-        }
-        let mut rand_index = rand::thread_rng().gen_range(0..6);
-        let rand_dir = Direction::from_value(rand_index).unwrap();
-        let rand_neighbour_coord = wall_coord.move_in_dir(rand_dir);
-        if let Some(neighbour) = self.board.get_mut(&rand_neighbour_coord) {
-            if !neighbour.is_hole() {
-                neighbour.set_as_hole()
             }
         }
     }
@@ -129,7 +121,7 @@ impl MainState {
 impl EventHandler<ggez::GameError> for MainState {
     fn update(&mut self, ctx: &mut Context) -> Result<(), GameError> {
 
-        while timer::check_update_time(ctx, 2) {
+        while timer::check_update_time(ctx, UPDATE_SPEED) {
 
             if self.end_game {
                 if self.snake.falling{
@@ -137,7 +129,7 @@ impl EventHandler<ggez::GameError> for MainState {
                 }
                 return Ok(());
             }
-            
+
             self.snake.move_();
             if self.snake.has_eaten_itself() {
                 self.end_game = true;
@@ -224,8 +216,21 @@ mod tests {
     #[test]
     fn test_random_tile() {
         let game = MainState::new().unwrap();
-        let random_tile_coord = MainState::get_random_tile(&game.board);
+        let random_tile_coord = game.get_random_tile();
         let random_tile = game.board.get(&random_tile_coord).unwrap();
-        assert!(!random_tile.is_wall())
+        assert!(!random_tile.is_hole())
+    }
+
+    #[test]
+    fn test_add_walls(){
+        let mut game = MainState::new().unwrap();
+        game.add_holes();
+        let mut counter = 0;
+        for (coord, tile) in game.board{
+            if tile.is_hole() &&  !(coord.r.abs() == GRID_RADIUS || coord.b.abs() == GRID_RADIUS || coord.g.abs() == GRID_RADIUS){
+                counter = counter + 1;
+            }
+        }
+        assert_eq!(counter, ADD_WALLS_NUM);
     }
 }

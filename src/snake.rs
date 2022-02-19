@@ -92,6 +92,15 @@ impl Snake{
         &end.coordinates
     }
 
+    pub fn check_collision(&self, coord: &HexCoordinates) -> bool{
+        for body_part in &self.tail{
+            if &body_part.coordinates == coord {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn draw(&self, ctx: &mut Context) -> GameResult<()>{
         //draw head
         if !self.tail.is_empty() {
@@ -131,6 +140,7 @@ impl Snake{
 
         Ok(())
     }
+
 
 
 }
@@ -196,5 +206,12 @@ mod tests{
 
 
 
+    }
+
+    #[test]
+    fn test_collision(){
+        let snek = Snake::new();
+        assert!(snek.check_collision(&HexCoordinates::new(1, -1, 0)));
+        assert!(!snek.check_collision(&HexCoordinates::new(-1, 1, 0)))
     }
 }
