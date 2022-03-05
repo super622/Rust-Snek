@@ -9,3 +9,5 @@ You hope that once you become bigger and stronger you could finally leave. But y
 - right key / D - to rotate to the right
 
 ! directions from the snake's perspective !
+## The Demo
+https://user-images.githubusercontent.com/124255/156885068-c5fc934b-a62d-4153-b0a5-bbc888a19a97.mp4
